@@ -1,0 +1,15 @@
+services:
+  umboard:
+    build:
+      context: .
+    image: umboard:latest
+    ports:
+      - "5561:5561"
+    environment:
+      DATABASE_URL: sqlite:/app/db/umboard.db
+    volumes:
+      - db:/app/db
+    restart: unless-stopped
+
+volumes:
+  db:
