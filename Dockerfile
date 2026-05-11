@@ -1,32 +1,33 @@
-FROM alpine:3.20 AS build
+FROM debian:bookworm-slim AS build
 
 ARG ZIG_VERSION=0.15.2
-ARG DUCKDB_VERSION=v1.2.2
+ARG DUCKDB_VERSION=v1.5.2
 ARG TARGETARCH
 
-RUN apk add --no-cache build-base curl tar xz sqlite-dev ca-certificates unzip
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential curl tar xz-utils ca-certificates unzip libsqlite3-dev \
+    && rm -rf /var/lib/apt/lists/*
 
-WORKDIR /tmp
 RUN case "${TARGETARCH}" in \
         amd64) ZIG_ARCH="x86_64" ;; \
         arm64) ZIG_ARCH="aarch64" ;; \
-        *) echo "Unsupported Docker target architecture: ${TARGETARCH}" >&2; exit 1 ;; \
+        *) echo "Unsupported architecture: ${TARGETARCH}" >&2; exit 1 ;; \
     esac \
-    && curl -fsSLO "https://ziglang.org/download/${ZIG_VERSION}/zig-${ZIG_ARCH}-linux-${ZIG_VERSION}.tar.xz" \
-    && tar -xf "zig-${ZIG_ARCH}-linux-${ZIG_VERSION}.tar.xz" \
-    && mv "zig-${ZIG_ARCH}-linux-${ZIG_VERSION}" /opt/zig
+    && curl -fsSL "https://ziglang.org/download/${ZIG_VERSION}/zig-${ZIG_ARCH}-linux-${ZIG_VERSION}.tar.xz" \
+       | tar -xJ -C /opt --one-top-level=zig --strip-components=1
 
 RUN case "${TARGETARCH}" in \
         amd64) DUCKDB_ARCH="amd64" ;; \
         arm64) DUCKDB_ARCH="aarch64" ;; \
-        *) echo "Unsupported Docker target architecture: ${TARGETARCH}" >&2; exit 1 ;; \
+        *) echo "Unsupported architecture: ${TARGETARCH}" >&2; exit 1 ;; \
     esac \
-    && curl -fsSLO "https://github.com/duckdb/duckdb/releases/download/${DUCKDB_VERSION}/libduckdb-linux-${DUCKDB_ARCH}.zip" \
-    && unzip "libduckdb-linux-${DUCKDB_ARCH}.zip" -d /tmp/duckdb \
+    && curl -fsSL "https://github.com/duckdb/duckdb/releases/download/${DUCKDB_VERSION}/libduckdb-linux-${DUCKDB_ARCH}.zip" \
+       -o /tmp/libduckdb.zip \
+    && unzip /tmp/libduckdb.zip -d /tmp/duckdb \
     && cp /tmp/duckdb/libduckdb.so /usr/local/lib/ \
-    && cp /tmp/duckdb/duckdb.h /usr/local/include/ \
-    && cp /tmp/duckdb/duckdb.hpp /usr/local/include/ \
-    && ldconfig /usr/local/lib
+    && cp /tmp/duckdb/duckdb.h /tmp/duckdb/duckdb.hpp /usr/local/include/ \
+    && ldconfig \
+    && rm -rf /tmp/libduckdb.zip /tmp/duckdb
 
 ENV PATH="/opt/zig:${PATH}"
 
@@ -36,14 +37,18 @@ COPY src ./src
 COPY cmd ./cmd
 COPY db ./db
 
-RUN zig version && zig build -Doptimize=ReleaseFast -Dduckdb-prefix=/usr/local
-RUN mkdir -p /app/zig-out/lib \
-    && find /app/.zig-cache -name 'libfacil.io.so' -exec cp '{}' /app/zig-out/lib/ \; \
-    && test -f /app/zig-out/lib/libfacil.io.so
+RUN --mount=type=cache,target=/root/.cache/zig \
+    zig build -Doptimize=ReleaseFast -Dduckdb-prefix=/usr/local
 
-FROM alpine:3.20 AS runtime
+RUN mkdir -p zig-out/lib \
+    && find .zig-cache -name 'libfacil.io.so' -exec cp '{}' zig-out/lib/ \; \
+    && test -f zig-out/lib/libfacil.io.so
 
-RUN apk add --no-cache sqlite-libs ca-certificates
+FROM debian:bookworm-slim AS runtime
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libsqlite3-0 ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
@@ -52,7 +57,7 @@ COPY --from=build /app/zig-out/bin/umboard-cmd_create-user /usr/local/bin/umboar
 COPY --from=build /app/zig-out/lib/libfacil.io.so /usr/local/lib/libfacil.io.so
 COPY --from=build /usr/local/lib/libduckdb.so /usr/local/lib/libduckdb.so
 
-RUN mkdir -p /app/db
+RUN ldconfig && mkdir -p /app/db
 
 ENV DATABASE_URL=sqlite:db/umboard.db
 

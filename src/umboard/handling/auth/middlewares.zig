@@ -105,7 +105,7 @@ pub fn RoleRequired(comptime required_role: []const u8) type {
                     var arena = std.heap.ArenaAllocator.init(scope.context.allocator);
                     defer arena.deinit();
 
-                    requireRoleWithScope(&r, arena.allocator(), scope.*, required_role) catch |err| switch (err) {
+                    requireRole(&r, arena.allocator(), scope.*, required_role) catch |err| switch (err) {
                         error.Forbidden => {
                             try r.sendBody("Forbidden: insufficient permissions");
                             r.setStatus(.forbidden);
@@ -122,33 +122,6 @@ pub fn RoleRequired(comptime required_role: []const u8) type {
 }
 
 fn requireRole(
-    req: *const zap.Request,
-    allocator: std.mem.Allocator,
-    ctx: *umboard.core.context.Context,
-    required_role: []const u8,
-) !*dbc.sqlite3 {
-    const db = try umboard.core.db.openBy(ctx);
-    errdefer umboard.core.db.close(db);
-
-    const session_key = try req.getCookieStr(allocator, "session") orelse {
-        return RoleRequiredError.Forbidden;
-    };
-    defer allocator.free(session_key);
-
-    const username = try getUsernameFromSession(db, allocator, session_key);
-    defer allocator.free(username);
-
-    const user_role = try getUserRole(db, allocator, username);
-    defer allocator.free(user_role);
-
-    if (!std.mem.eql(u8, user_role, required_role)) {
-        return RoleRequiredError.Forbidden;
-    }
-
-    return db;
-}
-
-fn requireRoleWithScope(
     req: *const zap.Request,
     allocator: std.mem.Allocator,
     scope: umboard.core.http.Scope,

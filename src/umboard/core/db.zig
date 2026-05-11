@@ -36,7 +36,7 @@ pub fn open(allocator: std.mem.Allocator, database_url: []const u8) !*sqlite.sql
 }
 
 pub fn openBy(context: *umboard.core.context.Context) !*sqlite.sqlite3 {
-    return open(context.allocator, context.database_url);
+    return open(context.allocator, umboard.core.conf.settings.DATABASE_URL);
 }
 
 pub fn close(db: *sqlite.sqlite3) void {
