@@ -13,12 +13,13 @@ RUN case "${TARGETARCH}" in \
         arm64) ZIG_ARCH="aarch64" ;; \
         *) echo "Unsupported architecture: ${TARGETARCH}" >&2; exit 1 ;; \
     esac \
+    && mkdir -p /opt/zig \
     && curl -fsSL "https://ziglang.org/download/${ZIG_VERSION}/zig-${ZIG_ARCH}-linux-${ZIG_VERSION}.tar.xz" \
-       | tar -xJ -C /opt --one-top-level=zig --strip-components=1
+       | tar -xJ -C /opt/zig --strip-components=1
 
 RUN case "${TARGETARCH}" in \
         amd64) DUCKDB_ARCH="amd64" ;; \
-        arm64) DUCKDB_ARCH="aarch64" ;; \
+        arm64) DUCKDB_ARCH="arm64" ;; \
         *) echo "Unsupported architecture: ${TARGETARCH}" >&2; exit 1 ;; \
     esac \
     && curl -fsSL "https://github.com/duckdb/duckdb/releases/download/${DUCKDB_VERSION}/libduckdb-linux-${DUCKDB_ARCH}.zip" \
