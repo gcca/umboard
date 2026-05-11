@@ -57,6 +57,8 @@ pub fn build(b: *std.Build) void {
     //
     // If neither case applies to you, feel free to delete the declaration you
     // don't need and to put everything under a single module.
+    const duckdb_prefix = b.option([]const u8, "duckdb-prefix", "Path to DuckDB installation prefix") orelse "/opt/homebrew";
+
     const exe = b.addExecutable(.{
         .name = "umboard",
         .root_module = b.createModule(.{
@@ -85,8 +87,8 @@ pub fn build(b: *std.Build) void {
     exe.linkLibC();
     exe.linkSystemLibrary("sqlite3");
     exe.linkSystemLibrary("duckdb");
-    exe.addSystemIncludePath(.{ .cwd_relative = "/opt/homebrew/include" });
-    exe.addLibraryPath(.{ .cwd_relative = "/opt/homebrew/lib" });
+    exe.addSystemIncludePath(.{ .cwd_relative = b.fmt("{s}/include", .{duckdb_prefix}) });
+    exe.addLibraryPath(.{ .cwd_relative = b.fmt("{s}/lib", .{duckdb_prefix}) });
 
     const create_user = b.addExecutable(.{
         .name = "umboard-cmd_create-user",
@@ -134,8 +136,8 @@ pub fn build(b: *std.Build) void {
     });
     cmd_datalake_init.linkLibC();
     cmd_datalake_init.linkSystemLibrary("duckdb");
-    cmd_datalake_init.addSystemIncludePath(.{ .cwd_relative = "/opt/homebrew/include" });
-    cmd_datalake_init.addLibraryPath(.{ .cwd_relative = "/opt/homebrew/lib" });
+    cmd_datalake_init.addSystemIncludePath(.{ .cwd_relative = b.fmt("{s}/include", .{duckdb_prefix}) });
+    cmd_datalake_init.addLibraryPath(.{ .cwd_relative = b.fmt("{s}/lib", .{duckdb_prefix}) });
 
     // This declares intent for the executable to be installed into the
     // install prefix when running `zig build` (i.e. when executing the default
@@ -181,8 +183,8 @@ pub fn build(b: *std.Build) void {
     mod_tests.linkLibC();
     mod_tests.linkSystemLibrary("sqlite3");
     mod_tests.linkSystemLibrary("duckdb");
-    mod_tests.addSystemIncludePath(.{ .cwd_relative = "/opt/homebrew/include" });
-    mod_tests.addLibraryPath(.{ .cwd_relative = "/opt/homebrew/lib" });
+    mod_tests.addSystemIncludePath(.{ .cwd_relative = b.fmt("{s}/include", .{duckdb_prefix}) });
+    mod_tests.addLibraryPath(.{ .cwd_relative = b.fmt("{s}/lib", .{duckdb_prefix}) });
 
     // A run step that will run the test executable.
     const run_mod_tests = b.addRunArtifact(mod_tests);
@@ -196,8 +198,8 @@ pub fn build(b: *std.Build) void {
     exe_tests.linkLibC();
     exe_tests.linkSystemLibrary("sqlite3");
     exe_tests.linkSystemLibrary("duckdb");
-    exe_tests.addSystemIncludePath(.{ .cwd_relative = "/opt/homebrew/include" });
-    exe_tests.addLibraryPath(.{ .cwd_relative = "/opt/homebrew/lib" });
+    exe_tests.addSystemIncludePath(.{ .cwd_relative = b.fmt("{s}/include", .{duckdb_prefix}) });
+    exe_tests.addLibraryPath(.{ .cwd_relative = b.fmt("{s}/lib", .{duckdb_prefix}) });
 
     // A run step that will run the second test executable.
     const run_exe_tests = b.addRunArtifact(exe_tests);
